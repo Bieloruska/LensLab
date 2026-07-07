@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#d97748">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Brúsiareň</title>
+<style>
+  :root {
+    --bg: #f4f3ef; --card: #ffffff; --border: #e2e0d8;
+    --text: #262522; --muted: #7a786f; --accent: #d97748; --accent-dark: #b85c30;
+    --ok-bg: #e1f5ee; --ok-tx: #085041;
+    --wait-bg: #faeeda; --wait-tx: #633806;
+    --no-bg: #fcebeb; --no-tx: #791f1f;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 14px; max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 6px 2px 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  select, input { width: 100%; font-size: 16px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--text); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tabs button { flex: 1; padding: 10px 4px; font-size: 14px; border: 1px solid var(--border); background: #fff; border-radius: 10px; color: var(--muted); }
+  .tabs button.act { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .send { width: 100%; margin-top: 16px; padding: 13px; font-size: 16px; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: 10px; }
+  .send:disabled { opacity: .5; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
+  .zi { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 11px 2px; border-top: 1px solid var(--border); }
+  .zi:first-child { border-top: none; }
+  .zi .d { font-size: 15px; }
+  .zi .t { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .badge { font-size: 12px; padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
+  .b-ok { background: var(--ok-bg); color: var(--ok-tx); }
+  .b-wait { background: var(--wait-bg); color: var(--wait-tx); }
+  .b-no { background: var(--no-bg); color: var(--no-tx); }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #262522; color: #fff; font-size: 14px; padding: 10px 18px; border-radius: 10px; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90%; text-align: center; }
+  #toast.show { opacity: 1; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 14px 0; }
+</style>
+</head>
+<body>
+  <h1>Brúsiareň</h1>
+
+  <div class="card">
+    <label for="meno">Kto si?</label>
+    <select id="meno"></select>
+  </div>
+
+  <div class="tabs">
+    <button id="tab-vykon" class="act" onclick="ukaz('vykon')">Výkon</button>
+    <button id="tab-dovolenka" onclick="ukaz('dovolenka')">Dovolenka</button>
+    <button id="tab-ziadosti" onclick="ukaz('ziadosti')">Moje žiadosti</button>
+  </div>
+
+  <div class="card" id="sec-vykon">
+    <label for="v-datum">Dátum</label>
+    <input type="date" id="v-datum">
+    <div class="row2">
+      <div>
+        <label for="v-kusy">Kusy</label>
+        <input type="number" id="v-kusy" min="0" inputmode="numeric" placeholder="0">
+      </div>
+      <div>
+        <label for="v-patenty">Patenty</label>
+        <input type="number" id="v-patenty" min="0" inputmode="numeric" placeholder="0">
+      </div>
+    </div>
+    <button class="send" id="v-send" onclick="poslatVykon()">Odoslať výkon</button>
+  </div>
+
+  <div class="card" id="sec-dovolenka" style="display:none">
+    <label for="z-typ">Typ</label>
+    <select id="z-typ">
+      <option value="D">Dovolenka</option>
+      <option value="PN">PN</option>
+      <option value="L">Lekár</option>
+    </select>
+    <div class="row2">
+      <div>
+        <label for="z-od">Od</label>
+        <input type="date" id="z-od">
+      </div>
+      <div>
+        <label for="z-do">Do</label>
+        <input type="date" id="z-do">
+      </div>
+    </div>
+    <button class="send" id="z-send" onclick="poslatZiadost()">Odoslať žiadosť</button>
+  </div>
+
+  <div class="card" id="sec-ziadosti" style="display:none">
+    <div id="zoznam" class="empty">Načítavam…</div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  // ================================================
+  //  SEM VLOŽ URL WEBOVEJ APLIKÁCIE Z APPS SCRIPTU
+  //  (končí na /exec)
+  // ================================================
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzRbWFQtNIHt_QWDFmsUWZBs7dRBAM-_VNMOXS_6d8almyarbZCcyuNoW0odPJQS2R7/exec';
+
+  var TYPY = { D: 'Dovolenka', PN: 'PN', L: 'Lekár' };
+
+  function $(id) { return document.getElementById(id); }
+
+  function apiGet(params) {
+    var q = Object.keys(params).map(function (k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    return fetch(API_URL + '?' + q).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function apiPost(obj) {
+    return fetch(API_URL, { method: 'POST', body: JSON.stringify(obj) })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j.ok) throw new Error(j.error || 'Server odmietol požiadavku');
+        return j;
+      });
+  }
+
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+
+  function dnes() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ukaz(sec) {
+    ['vykon', 'dovolenka', 'ziadosti'].forEach(function (s) {
+      $('sec-' + s).style.display = (s === sec) ? '' : 'none';
+      $('tab-' + s).className = (s === sec) ? 'act' : '';
+    });
+    if (sec === 'ziadosti') nacitajZiadosti();
+  }
+
+  function fmtD(iso) {
+    if (!iso || iso.length < 10) return iso;
+    return parseInt(iso.slice(8, 10), 10) + '.' + parseInt(iso.slice(5, 7), 10) + '.' + iso.slice(0, 4);
+  }
+
+  function nacitajZiadosti() {
+    var meno = $('meno').value;
+    $('zoznam').innerHTML = '<div class="empty">Načítavam…</div>';
+    apiGet({ action: 'ziadosti', meno: meno }).then(function (zs) {
+      if (!zs || !zs.length) {
+        $('zoznam').innerHTML = '<div class="empty">Zatiaľ žiadne žiadosti.</div>';
+        return;
+      }
+      var html = '';
+      zs.forEach(function (z) {
+        var cls = z.stav === 'Schválené' ? 'b-ok' : (z.stav === 'Zamietnuté' ? 'b-no' : 'b-wait');
+        var rozsah = (z.od === z.do) ? fmtD(z.od) : fmtD(z.od) + ' – ' + fmtD(z.do);
+        html += '<div class="zi"><div><div class="d">' + rozsah + '</div>' +
+                '<div class="t">' + (TYPY[z.typ] || z.typ) + '</div></div>' +
+                '<span class="badge ' + cls + '">' + z.stav + '</span></div>';
+      });
+      $('zoznam').innerHTML = html;
+    }).catch(function () {
+      $('zoznam').innerHTML = '<div class="empty">Nepodarilo sa načítať. Skús znova.</div>';
+    });
+  }
+
+  function poslatVykon() {
+    var kusy = Number($('v-kusy').value) || 0;
+    var patenty = Number($('v-patenty').value) || 0;
+    if (!$('v-datum').value) { toast('Vyber dátum.'); return; }
+    if (kusy <= 0 && patenty <= 0) { toast('Zadaj počet kusov.'); return; }
+    $('v-send').disabled = true;
+    apiPost({
+      action: 'vykon',
+      meno: $('meno').value,
+      datum: $('v-datum').value,
+      kusy: kusy,
+      patenty: patenty
+    }).then(function () {
+      $('v-send').disabled = false;
+      $('v-kusy').value = ''; $('v-patenty').value = '';
+      toast('Výkon odoslaný ✓');
+    }).catch(function (e) {
+      $('v-send').disabled = false;
+      toast('Chyba: ' + e.message);
+    });
+  }
+
+  function poslatZiadost() {
+    var od = $('z-od').value, doo = $('z-do').value;
+    if (!od) { toast('Vyber dátum od.'); return; }
+    if (!doo) doo = od;
+    if (doo < od) { toast('Dátum „do" je pred dátumom „od".'); return; }
+    $('z-send').disabled = true;
+    apiPost({
+      action: 'ziadost',
+      meno: $('meno').value,
+      typ: $('z-typ').value,
+      od: od,
+      'do': doo
+    }).then(function () {
+      $('z-send').disabled = false;
+      toast('Žiadosť odoslaná – čaká na schválenie');
+      ukaz('ziadosti');
+    }).catch(function (e) {
+      $('z-send').disabled = false;
+      toast('Chyba: ' + e.message);
+    });
+  }
+
+  // --- inicializácia ---
+  $('v-datum').value = dnes();
+  $('z-od').value = dnes();
+  $('z-do').value = dnes();
+
+  apiGet({ action: 'mena' }).then(function (mena) {
+    var sel = $('meno');
+    mena.forEach(function (m) {
+      var o = document.createElement('option');
+      o.value = m; o.textContent = m;
+      sel.appendChild(o);
+    });
+    try {
+      var ulozene = localStorage.getItem('bruska_meno');
+      if (ulozene && mena.indexOf(ulozene) >= 0) sel.value = ulozene;
+    } catch (e) {}
+  }).catch(function () {
+    toast('Nepodarilo sa spojiť so serverom – skontroluj internet.');
+  });
+
+  $('meno').addEventListener('change', function () {
+    try { localStorage.setItem('bruska_meno', this.value); } catch (e) {}
+    if ($('sec-ziadosti').style.display !== 'none') nacitajZiadosti();
+  });
+</script>
+</body>
+</html>
