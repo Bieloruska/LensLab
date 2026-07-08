@@ -1,13 +1,14 @@
 {
-  "name": "LensLab",
-  "short_name": "LensLab",
+  "id": "/?app=eyerim",
+  "name": "EYERIM",
+  "short_name": "EYERIM",
   "description": "Evidencia výkonu a žiadosti o dovolenku",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4f3ef",
-  "theme_color": "#d97748",
+  "background_color": "#eaf2fd",
+  "theme_color": "#1379E8",
   "lang": "sk",
   "icons": [
     {
