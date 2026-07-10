@@ -74,6 +74,9 @@
   </div>
 
   <div class="card" id="sec-dovolenka" style="display:none">
+    <div id="zostatok-box" style="display:none; background:var(--ok-bg); color:var(--ok-tx); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:15px;">
+      Zostatok dovolenky: <strong id="zostatok-hodnota">–</strong>
+    </div>
     <label for="z-typ">Typ</label>
     <select id="z-typ">
       <option value="D">Dovolenka</option>
@@ -150,6 +153,25 @@
       $('tab-' + s).className = (s === sec) ? 'act' : '';
     });
     if (sec === 'ziadosti') nacitajZiadosti();
+    if (sec === 'dovolenka') nacitajZostatok();
+  }
+
+  function nacitajZostatok() {
+    var meno = $('meno').value;
+    var box = $('zostatok-box');
+    if (!meno) { box.style.display = 'none'; return; }
+    apiGet({ action: 'zostatok', meno: meno }).then(function (r) {
+      if (r && r.zostatok !== null && r.zostatok !== undefined) {
+        var dni = Number(r.zostatok);
+        var slovo = (dni === 1) ? 'deň' : ((dni >= 2 && dni <= 4) ? 'dni' : 'dní');
+        $('zostatok-hodnota').textContent = dni + ' ' + slovo;
+        box.style.display = '';
+      } else {
+        box.style.display = 'none';
+      }
+    }).catch(function () {
+      box.style.display = 'none';
+    });
   }
 
   function fmtD(iso) {
@@ -246,6 +268,7 @@
   $('meno').addEventListener('change', function () {
     try { localStorage.setItem('bruska_meno', this.value); } catch (e) {}
     if ($('sec-ziadosti').style.display !== 'none') nacitajZiadosti();
+    if ($('sec-dovolenka').style.display !== 'none') nacitajZostatok();
   });
 </script>
 <script>
