@@ -41,6 +41,17 @@
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #262522; color: #fff; font-size: 14px; padding: 10px 18px; border-radius: 10px; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90%; text-align: center; }
   #toast.show { opacity: 1; }
   .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 14px 0; }
+  .doch { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .doch h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .doch .stav { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .big { width: 100%; padding: 16px; font-size: 17px; font-weight: 600; color: #fff; border: none; border-radius: 10px; }
+  .big-in { background: #12805c; }
+  .big-out { background: #b3401f; }
+  .big:disabled { opacity: .5; }
+  .prer { display: flex; gap: 8px; margin-top: 10px; }
+  .prer button { flex: 1; padding: 11px 4px; font-size: 13px; border: 1px solid var(--border); background: #fff; border-radius: 10px; color: var(--text); }
+  .prer button:disabled { opacity: .5; }
+  .dnes { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -71,6 +82,18 @@
       </div>
     </div>
     <button class="send" id="v-send" onclick="poslatVykon()">Odoslať výkon</button>
+  </div>
+
+  <div class="doch" id="sec-doch">
+    <h2>Dochádzka</h2>
+    <div class="stav" id="d-stav">Načítavam…</div>
+    <button class="big big-in" id="d-hlavne" onclick="dochHlavne()">Príchod</button>
+    <div class="prer" id="d-prerusenia" style="display:none">
+      <button onclick="dochUdalost('obed')">Obed</button>
+      <button onclick="dochUdalost('lekar')">Lekár</button>
+      <button onclick="dochUdalost('sukromne')">Súkromne</button>
+    </div>
+    <div class="dnes" id="d-dnes"></div>
   </div>
 
   <div class="card" id="sec-dovolenka" style="display:none">
@@ -152,6 +175,8 @@
       $('sec-' + s).style.display = (s === sec) ? '' : 'none';
       $('tab-' + s).className = (s === sec) ? 'act' : '';
     });
+    $('sec-doch').style.display = (sec === 'vykon') ? '' : 'none';
+    if (sec === 'vykon') nacitajDochadzku();
     if (sec === 'ziadosti') nacitajZiadosti();
     if (sec === 'dovolenka') nacitajZostatok();
   }
@@ -245,6 +270,74 @@
     });
   }
 
+
+  // ---------- DOCHÁDZKA ----------
+  var NAZVY_PRER = { obed: 'obede', lekar: 'u lekára', sukromne: 'súkromne preč' };
+  var dochStav = null;   // 'mimo' | 'v_praci' | 'prerusenie'
+  var dochPrer = '';
+
+  function vykresliDochadzku(r) {
+    dochStav = r.stav;
+    dochPrer = r.prerusenie || '';
+    var btn = $('d-hlavne');
+    var prer = $('d-prerusenia');
+    var stavTxt = $('d-stav');
+
+    btn.disabled = false;
+    if (dochStav === 'v_praci') {
+      btn.textContent = 'Odchod';
+      btn.className = 'big big-out';
+      prer.style.display = 'flex';
+      stavTxt.textContent = 'Si v práci.';
+    } else if (dochStav === 'prerusenie') {
+      btn.textContent = 'Návrat';
+      btn.className = 'big big-in';
+      prer.style.display = 'none';
+      stavTxt.textContent = 'Máš prerušenie – ' + (NAZVY_PRER[dochPrer] || dochPrer) + '.';
+    } else {
+      btn.textContent = 'Príchod';
+      btn.className = 'big big-in';
+      prer.style.display = 'none';
+      stavTxt.textContent = 'Nie si v práci.';
+    }
+
+    // prehľad dnešných udalostí
+    var POPIS = { prichod: 'Príchod', odchod: 'Odchod', navrat: 'Návrat', obed: 'Obed', lekar: 'Lekár', sukromne: 'Súkromne' };
+    var txt = '';
+    (r.udalosti || []).forEach(function (u) {
+      txt += (POPIS[u.typ] || u.typ) + ' ' + u.cas + '<br>';
+    });
+    $('d-dnes').innerHTML = txt;
+  }
+
+  function nacitajDochadzku() {
+    var meno = $('meno').value;
+    if (!meno) return;
+    $('d-stav').textContent = 'Načítavam…';
+    apiGet({ action: 'dochadzka_stav', meno: meno }).then(vykresliDochadzku)
+      .catch(function () { $('d-stav').textContent = 'Nepodarilo sa načítať stav.'; });
+  }
+
+  function dochHlavne() {
+    if (dochStav === 'v_praci') dochUdalost('odchod');
+    else if (dochStav === 'prerusenie') dochUdalost('navrat');
+    else dochUdalost('prichod');
+  }
+
+  function dochUdalost(typ) {
+    var btn = $('d-hlavne');
+    btn.disabled = true;
+    apiPost({ action: 'dochadzka', meno: $('meno').value, typ: typ }).then(function (r) {
+      vykresliDochadzku(r.stav);
+      var HLASKY = { prichod: 'Príchod zapísaný ✓', odchod: 'Odchod zapísaný ✓', navrat: 'Návrat zapísaný ✓',
+                     obed: 'Obed zapísaný ✓', lekar: 'Lekár zapísaný ✓', sukromne: 'Zapísané ✓' };
+      toast(HLASKY[typ] || 'Zapísané ✓');
+    }).catch(function (e) {
+      btn.disabled = false;
+      toast('Chyba: ' + e.message);
+    });
+  }
+
   // --- inicializácia ---
   $('v-datum').value = dnes();
   $('z-od').value = dnes();
@@ -261,6 +354,7 @@
       var ulozene = localStorage.getItem('bruska_meno');
       if (ulozene && mena.indexOf(ulozene) >= 0) sel.value = ulozene;
     } catch (e) {}
+    nacitajDochadzku();
   }).catch(function () {
     toast('Nepodarilo sa spojiť so serverom – skontroluj internet.');
   });
@@ -269,6 +363,7 @@
     try { localStorage.setItem('bruska_meno', this.value); } catch (e) {}
     if ($('sec-ziadosti').style.display !== 'none') nacitajZiadosti();
     if ($('sec-dovolenka').style.display !== 'none') nacitajZostatok();
+    nacitajDochadzku();
   });
 </script>
 <script>
