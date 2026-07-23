@@ -52,6 +52,23 @@
   .prer button { flex: 1; padding: 11px 4px; font-size: 13px; border: 1px solid var(--border); background: #fff; border-radius: 10px; color: var(--text); }
   .prer button:disabled { opacity: .5; }
   .dnes { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .pill { display:flex; gap:8px; margin-bottom:12px; }
+  .pill button { flex:1; padding:9px 4px; font-size:13px; border:1px solid var(--border); background:#fff; border-radius:99px; color:var(--muted); }
+  .pill button.act { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .typy { display:flex; flex-direction:column; gap:8px; }
+  .typy button { padding:14px; font-size:15px; border:1px solid var(--border); background:#fff; border-radius:10px; color:var(--text); text-align:left; }
+  .zi .akcie { display:flex; gap:6px; margin-top:6px; }
+  .zi .akcie button { padding:6px 12px; font-size:12px; border:1px solid var(--border); background:#fff; border-radius:8px; color:var(--text); }
+  .zi .akcie button.prim { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .zi-full { display:block; padding:11px 2px; border-top:1px solid var(--border); }
+  .zi-full:first-child { border-top:none; }
+  .zi-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .b-new { background:#e7eefc; color:#123a75; }
+  .b-work { background:#faeeda; color:#633806; }
+  .b-done { background:#e1f5ee; color:#085041; }
+  .b-closed { background:#eef0f3; color:#4a5565; }
+  .b-cancel { background:#fcebeb; color:#791f1f; }
+  .urg { font-size:11px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -96,6 +113,39 @@
     <div class="dnes" id="d-dnes"></div>
   </div>
 
+  <div class="card" id="sec-poz-btn">
+    <button class="send" style="margin-top:0" onclick="ukaz('poziadavka')">Požiadavky</button>
+  </div>
+
+  <div class="card" id="sec-poziadavka" style="display:none">
+    <div id="poz-krok1">
+      <p style="font-size:15px; margin-bottom:12px;">Čo potrebuješ?</p>
+      <div class="typy">
+        <button onclick="pozTyp('kupit')">Kúpiť</button>
+        <button onclick="pozTyp('zistit')">Zistiť</button>
+        <button onclick="pozTyp('servis')">Servis / náhradný diel</button>
+      </div>
+    </div>
+
+    <div id="poz-krok2" style="display:none">
+      <p style="font-size:15px; font-weight:600; margin-bottom:4px;" id="poz-nadpis"></p>
+      <label id="poz-l1" for="poz-f1"></label>
+      <input type="text" id="poz-f1">
+      <div id="poz-w2">
+        <label id="poz-l2" for="poz-f2"></label>
+        <input type="text" id="poz-f2">
+      </div>
+      <label>Naliehavosť</label>
+      <div class="pill" id="poz-urg">
+        <button class="act" onclick="pozUrg('neponahla', this)">Neponáhľa</button>
+        <button onclick="pozUrg('tyzden', this)">Do týždňa</button>
+        <button onclick="pozUrg('surne', this)">Súrne</button>
+      </div>
+      <button class="send" id="poz-send" onclick="poslatPoziadavku()">Odoslať požiadavku</button>
+      <button style="width:100%; margin-top:8px; padding:11px; font-size:14px; border:1px solid var(--border); background:#fff; border-radius:10px; color:var(--muted);" onclick="pozSpat()">Späť</button>
+    </div>
+  </div>
+
   <div class="card" id="sec-dovolenka" style="display:none">
     <div id="zostatok-box" style="display:none; background:var(--ok-bg); color:var(--ok-tx); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:15px;">
       Zostatok dovolenky: <strong id="zostatok-hodnota">–</strong>
@@ -120,6 +170,10 @@
   </div>
 
   <div class="card" id="sec-ziadosti" style="display:none">
+    <div class="pill">
+      <button id="sw-dov" class="act" onclick="prepni('dov')">Dovolenky</button>
+      <button id="sw-poz" onclick="prepni('poz')">Požiadavky</button>
+    </div>
     <div id="zoznam" class="empty">Načítavam…</div>
   </div>
 
@@ -175,9 +229,18 @@
       $('sec-' + s).style.display = (s === sec) ? '' : 'none';
       $('tab-' + s).className = (s === sec) ? 'act' : '';
     });
-    $('sec-doch').style.display = (sec === 'vykon') ? '' : 'none';
-    if (sec === 'vykon') nacitajDochadzku();
-    if (sec === 'ziadosti') nacitajZiadosti();
+    // dochádzka + tlačidlo Požiadavky patria k tabu Výkon
+    var naVykone = (sec === 'vykon');
+    $('sec-doch').style.display = naVykone ? '' : 'none';
+    $('sec-poz-btn').style.display = naVykone ? '' : 'none';
+    $('sec-poziadavka').style.display = (sec === 'poziadavka') ? '' : 'none';
+    if (sec === 'poziadavka') {
+      $('tab-vykon').className = 'act';
+      pozSpat();
+      return;
+    }
+    if (naVykone) nacitajDochadzku();
+    if (sec === 'ziadosti') { prepni(zoznamRezim); }
     if (sec === 'dovolenka') nacitajZostatok();
   }
 
@@ -272,7 +335,7 @@
 
 
   // ---------- DOCHÁDZKA ----------
-  var NAZVY_PRER = { obed: 'obede', lekar: 'u lekára', sukromne: 'súkromne preč' };
+  var NAZVY_PRER = { obed: 'na obede', lekar: 'u lekára', sukromne: 'súkromne preč' };
   var dochStav = null;   // 'mimo' | 'v_praci' | 'prerusenie'
   var dochPrer = '';
 
@@ -334,6 +397,133 @@
       toast(HLASKY[typ] || 'Zapísané ✓');
     }).catch(function (e) {
       btn.disabled = false;
+      toast('Chyba: ' + e.message);
+    });
+  }
+
+
+  // ---------- POŽIADAVKY ----------
+  var TYPY_POZ = { kupit: 'Kúpiť', zistit: 'Zistiť', servis: 'Servis / diel' };
+  var URG = { neponahla: 'Neponáhľa', tyzden: 'Do týždňa', surne: 'Súrne' };
+  var pozAktTyp = '';
+  var pozAktUrg = 'neponahla';
+  var zoznamRezim = 'dov';
+
+  function pozTyp(typ) {
+    pozAktTyp = typ;
+    $('poz-krok1').style.display = 'none';
+    $('poz-krok2').style.display = '';
+    $('poz-nadpis').textContent = TYPY_POZ[typ];
+    $('poz-f1').value = '';
+    $('poz-f2').value = '';
+    if (typ === 'kupit') {
+      $('poz-l1').textContent = 'Čo treba kúpiť?';
+      $('poz-l2').textContent = 'Koľko?';
+      $('poz-w2').style.display = '';
+    } else if (typ === 'zistit') {
+      $('poz-l1').textContent = 'Čo potrebuješ zistiť?';
+      $('poz-w2').style.display = 'none';
+    } else {
+      $('poz-l1').textContent = 'Aký diel? (pri oprave napíš „oprava")';
+      $('poz-l2').textContent = 'Na ktorý stroj?';
+      $('poz-w2').style.display = '';
+    }
+  }
+
+  function pozSpat() {
+    $('poz-krok2').style.display = 'none';
+    $('poz-krok1').style.display = '';
+  }
+
+  function pozUrg(u, btn) {
+    pozAktUrg = u;
+    var tl = $('poz-urg').getElementsByTagName('button');
+    for (var i = 0; i < tl.length; i++) tl[i].className = '';
+    btn.className = 'act';
+  }
+
+  function poslatPoziadavku() {
+    var popis = $('poz-f1').value.trim();
+    if (!popis) { toast('Vyplň, čo potrebuješ.'); return; }
+    $('poz-send').disabled = true;
+    apiPost({
+      action: 'poziadavka',
+      meno: $('meno').value,
+      typ: pozAktTyp,
+      popis: popis,
+      detail: $('poz-f2').value.trim(),
+      naliehavost: pozAktUrg
+    }).then(function () {
+      $('poz-send').disabled = false;
+      toast('Požiadavka odoslaná ✓');
+      pozSpat();
+      pozAktUrg = 'neponahla';
+      var tl = $('poz-urg').getElementsByTagName('button');
+      for (var i = 0; i < tl.length; i++) tl[i].className = (i === 0) ? 'act' : '';
+      zoznamRezim = 'poz';
+      ukaz('ziadosti');
+    }).catch(function (e) {
+      $('poz-send').disabled = false;
+      toast('Chyba: ' + e.message);
+    });
+  }
+
+  function prepni(rezim) {
+    zoznamRezim = rezim;
+    $('sw-dov').className = (rezim === 'dov') ? 'act' : '';
+    $('sw-poz').className = (rezim === 'poz') ? 'act' : '';
+    if (rezim === 'dov') nacitajZiadosti(); else nacitajPoziadavky();
+  }
+
+  function triedaStavu(s) {
+    if (s === 'Nová') return 'b-new';
+    if (s === 'Riešim') return 'b-work';
+    if (s === 'Hotovo') return 'b-done';
+    if (s === 'Uzavretá') return 'b-closed';
+    return 'b-cancel';
+  }
+
+  function nacitajPoziadavky() {
+    var meno = $('meno').value;
+    $('zoznam').innerHTML = '<div class="empty">Načítavam…</div>';
+    apiGet({ action: 'poziadavky', meno: meno }).then(function (ps) {
+      if (!ps || !ps.length) {
+        $('zoznam').innerHTML = '<div class="empty">Zatiaľ žiadne požiadavky.</div>';
+        return;
+      }
+      var html = '';
+      ps.forEach(function (p) {
+        var detail = p.detail ? ' – ' + p.detail : '';
+        var akcie = '';
+        if (p.stav === 'Nová' || p.stav === 'Riešim') {
+          akcie = '<div class="akcie"><button onclick="pozAkcia(\'' + p.id + '\',\'zrusit\')">Zrušiť</button></div>';
+        } else if (p.stav === 'Hotovo') {
+          akcie = '<div class="akcie"><button class="prim" onclick="pozAkcia(\'' + p.id + '\',\'potvrdit\')">Prevzaté</button></div>';
+        }
+        html += '<div class="zi-full">' +
+                '<div class="zi-head"><div><div class="d">' + escapeHtml(p.popis) + escapeHtml(detail) + '</div>' +
+                '<div class="t">' + (TYPY_POZ[p.typ] || p.typ) + ' · ' + p.datum +
+                ' · <span class="urg">' + (URG[p.naliehavost] || '') + '</span></div></div>' +
+                '<span class="badge ' + triedaStavu(p.stav) + '">' + p.stav + '</span></div>' +
+                akcie + '</div>';
+      });
+      $('zoznam').innerHTML = html;
+    }).catch(function () {
+      $('zoznam').innerHTML = '<div class="empty">Nepodarilo sa načítať. Skús znova.</div>';
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function pozAkcia(id, akcia) {
+    apiPost({ action: 'poz_akcia', id: id, akcia: akcia }).then(function () {
+      toast(akcia === 'zrusit' ? 'Požiadavka zrušená' : 'Potvrdené ✓');
+      nacitajPoziadavky();
+    }).catch(function (e) {
       toast('Chyba: ' + e.message);
     });
   }
