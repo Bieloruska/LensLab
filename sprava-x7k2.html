@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#16233a">
+<title>EYERIM Admin</title>
+<style>
+  :root {
+    --bg: #eef1f6; --card: #ffffff; --border: #d3dae6;
+    --text: #16233a; --muted: #5f7189; --accent: #1379E8;
+    --ok-bg: #e1f5ee; --ok-tx: #085041;
+    --wait-bg: #faeeda; --wait-tx: #633806;
+    --no-bg: #fcebeb; --no-tx: #791f1f;
+    --new-bg: #e7eefc; --new-tx: #123a75;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 14px; max-width: 520px; margin: 0 auto; }
+  h1 { font-size: 19px; font-weight: 600; margin: 4px 2px 14px; display:flex; justify-content:space-between; align-items:center; }
+  h1 .d { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; }
+  .cnt { font-size: 12px; background: var(--new-bg); color: var(--new-tx); padding: 2px 9px; border-radius: 99px; }
+  .cnt.zero { background: #eef0f3; color: #7a8699; }
+  input { width: 100%; font-size: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+  .btn { width: 100%; padding: 13px; font-size: 16px; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: 10px; }
+  .btn:disabled { opacity: .5; }
+  .row { padding: 12px 2px; border-top: 1px solid var(--border); }
+  .row:first-child { border-top: none; }
+  .rh { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .nm { font-size: 15px; font-weight: 500; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+  .b-ok { background: var(--ok-bg); color: var(--ok-tx); }
+  .b-wait { background: var(--wait-bg); color: var(--wait-tx); }
+  .b-no { background: var(--no-bg); color: var(--no-tx); }
+  .b-new { background: var(--new-bg); color: var(--new-tx); }
+  .b-off { background: #eef0f3; color: #7a8699; }
+  .acts { display: flex; gap: 6px; margin-top: 8px; }
+  .acts button { flex: 1; padding: 8px 4px; font-size: 13px; border: 1px solid var(--border); background: #fff; border-radius: 8px; color: var(--text); }
+  .acts button.yes { background: #12805c; border-color: #12805c; color: #fff; }
+  .acts button.no { background: #b3401f; border-color: #b3401f; color: #fff; }
+  .acts button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 10px 0; }
+  .urg-surne { color: #b3401f; font-weight: 600; }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #16233a; color:#fff; font-size:14px; padding:10px 18px; border-radius:10px; opacity:0; transition:opacity .3s; pointer-events:none; max-width:90%; text-align:center; }
+  #toast.show { opacity: 1; }
+  .refresh { background:none; border:none; color:var(--accent); font-size:13px; padding:0; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>EYERIM Admin</h1>
+  <div class="card">
+    <p style="font-size:14px; color:var(--muted); margin-bottom:12px;">Zadaj PIN</p>
+    <input type="password" id="pin" inputmode="numeric" autocomplete="off">
+    <button class="btn" style="margin-top:12px" id="btn-login" onclick="prihlas()">Vstúpiť</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <h1>EYERIM Admin <button class="refresh" onclick="nacitaj()">Obnoviť</button></h1>
+
+  <div class="card">
+    <h2>Žiadosti o absenciu <span class="cnt" id="c-zia">0</span></h2>
+    <div id="zia"></div>
+  </div>
+
+  <div class="card">
+    <h2>Požiadavky <span class="cnt" id="c-poz">0</span></h2>
+    <div id="poz"></div>
+  </div>
+
+  <div class="card">
+    <h2>Kto je v práci <span class="cnt" id="c-prac">0</span></h2>
+    <div id="prac"></div>
+  </div>
+
+  <div class="card">
+    <h2>Chýbajúce zápisy <span class="cnt" id="c-chyb">0</span></h2>
+    <div id="chyb"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ================================================
+  //  SEM VLOŽ URL WEBOVEJ APLIKÁCIE Z APPS SCRIPTU
+  //  (rovnaká ako v zamestnaneckej appke, končí na /exec)
+  // ================================================
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzRbWFQtNIHt_QWDFmsUWZBs7dRBAM-_VNMOXS_6d8almyarbZCcyuNoW0odPJQS2R7/exec';
+
+  var PIN = '';
+  var TYPY = { kupit: 'Kúpiť', zistit: 'Zistiť', servis: 'Servis/diel' };
+  var URG = { neponahla: 'Neponáhľa', tyzden: 'Do týždňa', surne: 'Súrne' };
+  var TYPY_ABS = { D: 'Dovolenka', PN: 'PN', L: 'Lekár' };
+
+  function $(id) { return document.getElementById(id); }
+
+  function toast(m) {
+    var t = $('toast'); t.textContent = m; t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 2600);
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function fmtD(iso) {
+    if (!iso || iso.length < 10) return iso;
+    return parseInt(iso.slice(8,10),10) + '.' + parseInt(iso.slice(5,7),10) + '.';
+  }
+
+  function api(params) {
+    var q = Object.keys(params).map(function(k){
+      return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    return fetch(API_URL + '?' + q).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function prihlas() {
+    var p = $('pin').value.trim();
+    if (!p) { toast('Zadaj PIN.'); return; }
+    $('btn-login').disabled = true;
+    api({ action: 'admin_prehlad', pin: p }).then(function(d){
+      $('btn-login').disabled = false;
+      if (!d.ok) { toast(d.error || 'Nesprávny PIN'); return; }
+      PIN = p;
+      try { localStorage.setItem('eyerim_admin_pin', p); } catch(e) {}
+      $('login').style.display = 'none';
+      $('app').style.display = '';
+      vykresli(d);
+    }).catch(function(e){
+      $('btn-login').disabled = false;
+      toast('Chyba: ' + e.message);
+    });
+  }
+
+  function nacitaj() {
+    api({ action: 'admin_prehlad', pin: PIN }).then(function(d){
+      if (!d.ok) { toast(d.error || 'Chyba'); return; }
+      vykresli(d);
+    }).catch(function(e){ toast('Chyba: ' + e.message); });
+  }
+
+  function cnt(id, n) {
+    var el = $(id);
+    el.textContent = n;
+    el.className = n ? 'cnt' : 'cnt zero';
+  }
+
+  function vykresli(d) {
+    // --- žiadosti ---
+    cnt('c-zia', d.ziadosti.length);
+    if (!d.ziadosti.length) {
+      $('zia').innerHTML = '<div class="empty">Nič nečaká.</div>';
+    } else {
+      var h = '';
+      d.ziadosti.forEach(function(z){
+        var rozsah = (z.od === z.do) ? fmtD(z.od) : fmtD(z.od) + ' – ' + fmtD(z.do);
+        h += '<div class="row"><div class="rh"><div>' +
+             '<div class="nm">' + esc(z.meno) + '</div>' +
+             '<div class="sub">' + (TYPY_ABS[z.typ] || z.typ) + ' · ' + rozsah + '</div></div>' +
+             '<span class="badge b-wait">Čaká</span></div>' +
+             '<div class="acts">' +
+             '<button class="yes" onclick="akcia(\'ziadost\',\'' + z.id + '\',\'Schválené\')">Schváliť</button>' +
+             '<button class="no" onclick="akcia(\'ziadost\',\'' + z.id + '\',\'Zamietnuté\')">Zamietnuť</button>' +
+             '</div></div>';
+      });
+      $('zia').innerHTML = h;
+    }
+
+    // --- požiadavky ---
+    cnt('c-poz', d.poziadavky.length);
+    if (!d.poziadavky.length) {
+      $('poz').innerHTML = '<div class="empty">Nič otvorené.</div>';
+    } else {
+      var h2 = '';
+      d.poziadavky.forEach(function(p){
+        var cls = p.stav === 'Nová' ? 'b-new' : (p.stav === 'Riešim' ? 'b-wait' : 'b-ok');
+        var det = p.detail ? ' – ' + p.detail : '';
+        var urgCls = p.naliehavost === 'surne' ? ' urg-surne' : '';
+        var akcie = '';
+        if (p.stav === 'Nová') {
+          akcie = '<button class="pri" onclick="akcia(\'poziadavka\',\'' + p.id + '\',\'Riešim\')">Beriem</button>' +
+                  '<button class="yes" onclick="akcia(\'poziadavka\',\'' + p.id + '\',\'Hotovo\')">Hotovo</button>';
+        } else if (p.stav === 'Riešim') {
+          akcie = '<button class="yes" onclick="akcia(\'poziadavka\',\'' + p.id + '\',\'Hotovo\')">Hotovo</button>';
+        }
+        h2 += '<div class="row"><div class="rh"><div>' +
+              '<div class="nm">' + esc(p.popis) + esc(det) + '</div>' +
+              '<div class="sub">' + esc(p.meno) + ' · ' + (TYPY[p.typ] || p.typ) +
+              ' · <span class="' + urgCls + '">' + (URG[p.naliehavost] || '') + '</span></div></div>' +
+              '<span class="badge ' + cls + '">' + p.stav + '</span></div>' +
+              (akcie ? '<div class="acts">' + akcie + '</div>' : '') + '</div>';
+      });
+      $('poz').innerHTML = h2;
+    }
+
+    // --- kto je v práci ---
+    var vp = d.vpraci.filter(function(x){ return x.stav !== 'mimo'; });
+    cnt('c-prac', vp.length);
+    var h3 = '';
+    d.vpraci.forEach(function(v){
+      var badge, cls;
+      if (v.stav === 'v_praci') { badge = 'V práci'; cls = 'b-ok'; }
+      else if (v.stav === 'prerusenie') {
+        var NP = { obed: 'Obed', lekar: 'Lekár', sukromne: 'Súkromne' };
+        badge = NP[v.prerusenie] || 'Preč'; cls = 'b-wait';
+      } else { badge = 'Neprišiel'; cls = 'b-off'; }
+      h3 += '<div class="row"><div class="rh"><div>' +
+            '<div class="nm">' + esc(v.meno) + '</div>' +
+            (v.prichod ? '<div class="sub">príchod ' + v.prichod + '</div>' : '') +
+            '</div><span class="badge ' + cls + '">' + badge + '</span></div></div>';
+    });
+    $('prac').innerHTML = h3 || '<div class="empty">Žiadni zamestnanci.</div>';
+
+    // --- chýbajúce zápisy ---
+    cnt('c-chyb', d.chybajuce.length);
+    if (!d.chybajuce.length) {
+      $('chyb').innerHTML = '<div class="empty">Všetko vyplnené.</div>';
+    } else {
+      // zoskup podľa dátumu
+      var podla = {};
+      d.chybajuce.forEach(function(c){
+        if (!podla[c.datum]) podla[c.datum] = [];
+        podla[c.datum].push(c.meno);
+      });
+      var h4 = '';
+      Object.keys(podla).sort().reverse().forEach(function(dat){
+        h4 += '<div class="row"><div class="nm">' + fmtD(dat) + '</div>' +
+              '<div class="sub">' + podla[dat].map(esc).join(', ') + '</div></div>';
+      });
+      $('chyb').innerHTML = h4;
+    }
+  }
+
+  function akcia(typ, id, stav) {
+    api({ action: 'admin_akcia', pin: PIN, typ: typ, id: id, stav: stav }).then(function(r){
+      if (!r.ok) { toast(r.error || 'Chyba'); return; }
+      toast('Uložené ✓');
+      nacitaj();
+    }).catch(function(e){ toast('Chyba: ' + e.message); });
+  }
+
+  // automatické prihlásenie, ak je PIN uložený
+  try {
+    var ulozeny = localStorage.getItem('eyerim_admin_pin');
+    if (ulozeny) { $('pin').value = ulozeny; prihlas(); }
+  } catch(e) {}
+
+  $('pin').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') prihlas();
+  });
+</script>
+</body>
+</html>
