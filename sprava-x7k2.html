@@ -208,23 +208,23 @@
       $('poz').innerHTML = h2;
     }
 
-    // --- kto je v práci ---
+    // --- kto je v práci (len tí, čo sa pípli) ---
     var vp = d.vpraci.filter(function(x){ return x.stav !== 'mimo'; });
     cnt('c-prac', vp.length);
     var h3 = '';
-    d.vpraci.forEach(function(v){
+    vp.forEach(function(v){
       var badge, cls;
       if (v.stav === 'v_praci') { badge = 'V práci'; cls = 'b-ok'; }
-      else if (v.stav === 'prerusenie') {
+      else {
         var NP = { obed: 'Obed', lekar: 'Lekár', sukromne: 'Súkromne' };
         badge = NP[v.prerusenie] || 'Preč'; cls = 'b-wait';
-      } else { badge = 'Neprišiel'; cls = 'b-off'; }
+      }
       h3 += '<div class="row"><div class="rh"><div>' +
             '<div class="nm">' + esc(v.meno) + '</div>' +
             (v.prichod ? '<div class="sub">príchod ' + v.prichod + '</div>' : '') +
             '</div><span class="badge ' + cls + '">' + badge + '</span></div></div>';
     });
-    $('prac').innerHTML = h3 || '<div class="empty">Žiadni zamestnanci.</div>';
+    $('prac').innerHTML = h3 || '<div class="empty">Zatiaľ nikto nezapípol.</div>';
 
     // --- chýbajúce zápisy ---
     cnt('c-chyb', d.chybajuce.length);
@@ -264,7 +264,6 @@
     if (e.key === 'Enter') prihlas();
   });
 </script>
-</body>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
@@ -272,4 +271,5 @@
     });
   }
 </script>
+</body>
 </html>
