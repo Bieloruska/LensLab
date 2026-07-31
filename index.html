@@ -69,6 +69,10 @@
   .b-closed { background:#eef0f3; color:#4a5565; }
   .b-cancel { background:#fcebeb; color:#791f1f; }
   .urg { font-size:11px; color:var(--muted); }
+  .fond { margin-top: 12px; padding: 11px 13px; border-radius: 10px; font-size: 14px; }
+  .fond-ok { background: var(--ok-bg, #e1f5ee); color: var(--ok-tx, #085041); }
+  .fond-nad { background: #e7eefc; color: #123a75; }
+  .fond-chyba { background: #faeeda; color: #633806; }
 </style>
 </head>
 <body>
@@ -111,6 +115,7 @@
       <button onclick="dochUdalost('sukromne')">Súkromne</button>
     </div>
     <div class="dnes" id="d-dnes"></div>
+    <div class="fond" id="d-fond" style="display:none"></div>
   </div>
 
   <div class="card" id="sec-poz-btn">
@@ -335,7 +340,7 @@
 
 
   // ---------- DOCHÁDZKA ----------
-  var NAZVY_PRER = { obed: 'na obede', lekar: 'u lekára', sukromne: 'súkromne preč' };
+  var NAZVY_PRER = { obed: 'obede', lekar: 'u lekára', sukromne: 'súkromne preč' };
   var dochStav = null;   // 'mimo' | 'v_praci' | 'prerusenie'
   var dochPrer = '';
 
@@ -373,9 +378,31 @@
     $('d-dnes').innerHTML = txt;
   }
 
+  function nacitajCasovyFond() {
+    var meno = $('meno').value;
+    var box = $('d-fond');
+    if (!meno) { box.style.display = 'none'; return; }
+    apiGet({ action: 'casovy_fond', meno: meno }).then(function (r) {
+      if (!r || !r.stav) { box.style.display = 'none'; return; }
+      var h = (Math.round(r.hodiny * 10) / 10).toString().replace('.', ',');
+      if (r.stav === 'nadcas') {
+        box.className = 'fond fond-nad';
+        box.textContent = 'Máš nadčas: ' + h + ' h';
+      } else if (r.stav === 'chyba') {
+        box.className = 'fond fond-chyba';
+        box.textContent = 'Chýba ti: ' + h + ' h';
+      } else {
+        box.className = 'fond fond-ok';
+        box.textContent = 'Časový fond: všetko v poriadku';
+      }
+      box.style.display = '';
+    }).catch(function () { box.style.display = 'none'; });
+  }
+
   function nacitajDochadzku() {
     var meno = $('meno').value;
     if (!meno) return;
+    nacitajCasovyFond();
     $('d-stav').textContent = 'Načítavam…';
     apiGet({ action: 'dochadzka_stav', meno: meno }).then(vykresliDochadzku)
       .catch(function () { $('d-stav').textContent = 'Nepodarilo sa načítať stav.'; });
